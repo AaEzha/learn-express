@@ -1,0 +1,17 @@
+{
+  "name": "express2",
+  "version": "1.0.0",
+  "main": "app.js",
+  "license": "MIT",
+  "scripts": {
+    "dev": "nodemon app"
+  },
+  "dependencies": {
+    "dotenv": "^13.0.1",
+    "express": "^4.17.2",
+    "morgan": "^1.10.0",
+    "mysql2": "^2.3.3",
+    "nodemon": "^2.0.15",
+    "sequelize": "^6.13.0"
+  }
+}
