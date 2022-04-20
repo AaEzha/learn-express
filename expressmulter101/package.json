@@ -1,0 +1,14 @@
+{
+  "name": "expressmulter101",
+  "version": "1.0.0",
+  "main": "app.js",
+  "license": "MIT",
+  "scripts": {
+    "dev": "nodemon app.js"
+  },
+  "dependencies": {
+    "express": "^4.17.3",
+    "multer": "^1.4.4",
+    "nodemon": "^2.0.15"
+  }
+}
