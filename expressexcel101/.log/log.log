@@ -1,0 +1,74 @@
+20-04-2022 09:49:20 : File trx_excel2.xlsx Berhasil Diupload
+
+------------------------------
+
+20-04-2022 09:49:20 : [
+    {
+        "date": "2022-04-19T09:17:14.000Z",
+        "transcoat": 1,
+        "deskripsi": "baris 1",
+        "coa": 345,
+        "debit": 1000,
+        "kredit": 2000
+    },
+    {
+        "date": "2022-04-20T09:17:14.000Z",
+        "transcoat": 1,
+        "deskripsi": "Baris 2",
+        "coa": 234,
+        "debit": 2000,
+        "kredit": 1000
+    },
+    {
+        "date": "2022-04-21T09:17:14.000Z",
+        "transcoat": 1,
+        "deskripsi": "Baris 3",
+        "coa": 234,
+        "debit": 3000,
+        "kredit": 3000
+    }
+]
+
+------------------------------
+
+20-04-2022 09:49:10 : File Excel tidak ditemukan
+
+------------------------------
+
+20-04-2022 09:49:00 : File trx_excel2.xlsx Berhasil Diupload
+
+------------------------------
+
+20-04-2022 09:49:00 : [
+    {
+        "date": "2022-04-19T09:17:14.000Z",
+        "transcoat": 1,
+        "deskripsi": "baris 1",
+        "coa": 345,
+        "debit": 1000,
+        "kredit": 2000
+    },
+    {
+        "date": "2022-04-20T09:17:14.000Z",
+        "transcoat": 1,
+        "deskripsi": "Baris 2",
+        "coa": 234,
+        "debit": 2000,
+        "kredit": 1000
+    },
+    {
+        "date": "2022-04-21T09:17:14.000Z",
+        "transcoat": 1,
+        "deskripsi": "Baris 3",
+        "coa": 234,
+        "debit": 3000,
+        "kredit": 3000
+    }
+]
+
+------------------------------
+
+20-04-2022 09:48:50 : File Excel tidak ditemukan
+
+------------------------------
+
