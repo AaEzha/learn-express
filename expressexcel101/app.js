@@ -66,7 +66,11 @@ cron.schedule(process.env.CRON_SCHEDULE, () => {
             // }
             
             // send To API Laravel
-            // axios.post(process.env.BACKEND_ENDPOINT, {data: readExcel.slice(1)})
+            // axios.post(process.env.BACKEND_ENDPOINT, {data: readExcel.slice(1)}, {
+            //   headers: {
+            //     Authorization: "Bearer " + process.env.JWT_TOKEN
+            //  }
+            // })
             // .then(res => {
 
               // console.log(res);
