@@ -1,0 +1,4 @@
+ 
+ffmpeg -i input.mkv -crf 30 -preset veryslow -c:a copy -vf subtitles=input.mkv 360p.mp4
+
+ffmpeg -i input.mkv -crf 24 -preset veryslow -c:a copy -vf subtitles=input.mkv 720p.mp4
