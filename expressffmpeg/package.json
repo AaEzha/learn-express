@@ -9,6 +9,8 @@
   "dependencies": {
     "express": "^4.18.1",
     "ffmpeg": "^0.0.4",
-    "nodemon": "^2.0.19"
+    "jsonfile": "^6.1.0",
+    "nodemon": "^2.0.19",
+    "writelog": "^1.1.3"
   }
 }
