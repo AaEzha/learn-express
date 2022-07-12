@@ -47,7 +47,7 @@ async function addWatermarkVideo(data){
     var process = new ffmpeg(data.video_url)
     .then(async function (video) {
       log('log', `Video with order id: ${data.order_id} is starting watermark proccess`);
-      console.log("masuk 1");
+      // console.log("masuk 1");
       // Add Watermark
       video.fnAddWatermark('./assets/logo.png', `./video_done/video_w_${new Date().getTime()}-${data.order_id}.mp4`, { // Watermark location || video done Location
         position : 'NW',
@@ -79,7 +79,7 @@ async function addPreviewWatermarkVideo(data){
     var process = new ffmpeg(data.video_url)
     .then(async function (video) {
       log('log', `Video with order id: ${data.order_id} is starting preview watermark proccess`);
-      console.log("masuk 2");
+      // console.log("masuk 2");
 
       // Add preview watermark
       video.fnAddWatermark('./assets/preview.png', `./video_done/video_p_${new Date().getTime()}-${data.order_id}.mp4`, { // preview watermark location || video done Location
@@ -109,6 +109,8 @@ app.get('/', async (req, res) => {
   if (!isEncoding) {
     proccessVideo()
   }
+
+  res.send("Encode start!")
 })
 
 app.get('/add', async (req, res) => {
@@ -138,7 +140,7 @@ app.get('/add', async (req, res) => {
 
 async function proccessVideo(){
   isEncoding = true
-  let encodeData = await readJSON() 
+  let encodeData = await readJSON()
   .catch(err => {
     log('error_log', `Error when read JSON FILE, message: ${err}`)
     console.log(err)
@@ -177,7 +179,16 @@ async function proccessVideo(){
       })
   
       console.log("result:", encodedVideoData);
-  
+      
+      // Refresh Data (if there's new data)
+      encodeData = await readJSON()
+      .catch(err => {
+        log('error_log', `Error when read new JSON FILE, message: ${err}`)
+        log('error_log', `All encode proccess stopped!`)
+        console.log(err)
+        return false
+      })
+
       // Remove Current Encode data
       encodeData.data = encodeData.data.filter(value => {
         return value.order_id != currentEncode.order_id
@@ -200,6 +211,8 @@ async function proccessVideo(){
       // console.log(e.code);
       // console.log(e.msg);
     }
+  } else {
+    log('log', `All video encoded successfully`);
   }
 }
 
