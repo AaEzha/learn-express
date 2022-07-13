@@ -17,7 +17,7 @@ var isEncoding = false
 
 async function addWatermarkVideo(data){
   return new Promise((resolve, reject) => {
-    var process = new ffmpeg(`./raw_video/${data.raw_video_name}`)
+    var process = new ffmpeg(`./raw_video/${data.raw_video_name}.${data.raw_video_extension}`)
     .then(async function (video) {
       const fileName = `video_w_${new Date().getTime()}-${data.order_id}.mp4`
       log('log', `Video with order id: ${data.order_id} is starting watermark proccess`);
@@ -64,7 +64,7 @@ async function addWatermarkVideo(data){
 
 async function addPreviewWatermarkVideo(data){
   return new Promise((resolve, reject) => {
-    var process = new ffmpeg(`./raw_video/${data.raw_video_name}`)
+    var process = new ffmpeg(`./raw_video/${data.raw_video_name}.${data.raw_video_extension}`)
     .then(async function (video) {
       const fileName = `video_p_${new Date().getTime()}-${data.order_id}.mp4`
       log('log', `Video with order id: ${data.order_id} is starting preview watermark proccess`);
@@ -160,22 +160,22 @@ async function downloadFromS3(data){
   return new Promise((resolve, reject) => {
 
     const fileExtension = data.video_url.split('.')
-
-    const file = fs.createWriteStream(`./raw_video/${data.order_id}.${fileExtension}`);
+    
+    const file = fs.createWriteStream(`./raw_video/${data.order_id}.${fileExtension[fileExtension.length - 1]}`);
     let fileInfo = null;
 
     log('log', `Downloading RAW video from url: ${data.video_url}`)
-    console.log(data.video_url);
 
     const request = get(data.video_url, response => {
-      // if (response.statusCode !== 200) {
-      //   fs.unlink(`./raw_video/${data.order_id}.${fileExtension}`);
-      //   reject(err);
-      //   return;
-      // }
+      if (response.statusCode !== 200) {
+        fs.unlink(`./raw_video/${data.order_id}.${fileExtension[fileExtension.length - 1]}`);
+        reject(err);
+        return;
+      }
 
       fileInfo = {
-        fileName: `${data.order_id}.${fileExtension}`,
+        fileName: data.order_id,
+        extension: fileExtension[fileExtension.length - 1],
         mime: response.headers['content-type'],
       };
 
@@ -185,26 +185,32 @@ async function downloadFromS3(data){
     // The destination stream is ended by the time it's called
     file.on('finish', () => {
       resolve(fileInfo)
-      log('log', `Success download RAW video from url: ${data.raw_video}`)
+      log('log', `Success download RAW video from url: ${data.video_url}`)
     });
 
     request.on('error', err => {
-      fs.unlink(`./raw_video/${data.order_id}.${fileExtension}`, () => reject(err));
+      fs.unlink(`./raw_video/${data.order_id}.${fileExtension[fileExtension.length - 1]}`, () => reject(err));
     });
 
     file.on('error', err => {
-      fs.unlink(`./raw_video/${data.order_id}.${fileExtension}`, () => reject(err));
+      fs.unlink(`./raw_video/${data.order_id}.${fileExtension[fileExtension.length - 1]}`, () => reject(err));
     });
 
     request.end();
 
   })
-  
 }
 
 app.get('/', async (req, res) => {
   // const getFile = await downloadFromS3('https://s3.ap-southeast-2.wasabisys.com/testing-area/asset/talentvideo2.mp4')
-  const getFile = await downloadFromS3('https://s3.ap-southeast-2.wasabisys.com/testing-area/asset/video2.mkv')
+  const data = {
+    "order_id": 1,
+    // "order_id": order_id, // Real data
+    // "video_url": "./assets/talentvideo1.mp4",
+    "video_url": 'https://s3.ap-southeast-2.wasabisys.com/testing-area/asset/video2.mkv',
+    "is_landscape": true
+  }
+  const getFile = await downloadFromS3(data)
   // if (!isEncoding) {
   //   proccessVideo()
   // }
@@ -275,32 +281,35 @@ async function proccessVideo(){
   })
 
   if (encodeData.data.length > 0) {
-    let currentEncode = encodeData.data[0]
-    let encodedVideoData = {
-      "order_id":currentEncode.order_id,
-      "raw_video":currentEncode.video_url,
+    let currentEncode = {
+      ...encodeData.data[0],
       "raw_video_name":'',
+      "raw_video_extension":'',
       "watermark_video":'',
       "preview_video":'',
-      "is_landscape":currentEncode.is_landscape
     }
-  
+
+    console.log(currentEncode);
     try {
 
       // Download File From S3
+      console.log("Download from S3");
       await downloadFromS3(currentEncode)
         .then(res => {
-          encodedVideoData.raw_video_name = res.fileName
+          console.log("downloadRes:", res);
+          currentEncode.raw_video_name = res.fileName
+          currentEncode.raw_video_extension = res.extension
         })
         .catch(err => {
-          console.log(err)
+          // console.log(err)
           log('error_log', `Error when download RAW video with order id: ${data.order_id} | error: ${err}`)
         })
-  
+      
       // Add watermark Foryou to Video
+      console.log("add FORYOU Watermark");
       await addWatermarkVideo(currentEncode)
         .then(res => {
-          encodedVideoData.watermark_video = res
+          currentEncode.watermark_video = res
         })
         .catch(err => {
           console.log(err)
@@ -310,7 +319,7 @@ async function proccessVideo(){
       // Add watermark Preview to Video
       await addPreviewWatermarkVideo(currentEncode)
         .then(res => {
-          encodedVideoData.preview_video = res
+          currentEncode.preview_video = res
         })
         .catch(err => {
           console.log(err)
@@ -331,7 +340,7 @@ async function proccessVideo(){
       
       // Add finished data to log
       let doneEncodeData = await readJSON('finished_job') 
-      await writeJSON('finished_job', doneEncodeData, encodedVideoData)
+      await writeJSON('finished_job', doneEncodeData, currentEncode)
       
       // Switch to Next Job
       proccessVideo()
@@ -353,7 +362,7 @@ async function proccessVideo(){
 
       // Add error data to failed_job.json
       const errorJobs = await readJSON("failed_job")
-      await writeJSON('failed_job', errorJobs, encodedVideoData)
+      await writeJSON('failed_job', errorJobs, currentEncode)
 
       // Switch to Next Job
       proccessVideo()
