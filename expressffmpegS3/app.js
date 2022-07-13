@@ -1,55 +1,23 @@
 const express = require('express')
-const jsonfile = require('jsonfile')
 const ffmpeg = require('ffmpeg')
 const log = require('writelog')
 
 var fs = require('fs')
-var Upload = require("@aws-sdk/lib-storage").Upload;
-var S3Client = require("@aws-sdk/client-s3").S3Client;
+var aws = require("aws-sdk")
+var {Upload} = require("@aws-sdk/lib-storage");
+var {S3Client} = require("@aws-sdk/client-s3");
 require('dotenv/config')
+
+var readJSON = require('./helper/ReadJson')
+var writeJSON = require('./helper/WriteJson')
+const { get } = require('https')
 
 const app = express()
 var isEncoding = false
 
-async function readJSON(){
-  return await jsonfile.readFile("./data.json")
-}
-
-async function writeJSON(encodeData){
-  return jsonfile.writeFile('./data.json', encodeData, (err) => {
-    if (err) {
-      log('error_log', `Error when write to JSON FILE, message: ${err}`)
-      console.log(err);
-    }
-  })
-}
-
-async function readFinishedJobJSON(){
-  return await jsonfile.readFile("./finished_job.json")
-}
-
-async function writeFinishedJobJSON(oldEncodeData, newEncodeData){
-  // Add new data
-  oldEncodeData.data.push({
-    "order_id":newEncodeData.order_id,
-    "raw_video":newEncodeData.video_url,
-    "watermark_video":newEncodeData.watermark_video,
-    "preview_video":newEncodeData.preview_video,
-    "is_landscape":newEncodeData.is_landscape
-  })
-
-  return jsonfile.writeFile('./finished_job.json', oldEncodeData, (err) => {
-    if (err) {
-      log('error_log', `Error when write to JSON FILE, message: ${err}`)
-      console.log(err);
-    }
-  })
-}
-
-
 async function addWatermarkVideo(data){
   return new Promise((resolve, reject) => {
-    var process = new ffmpeg(data.video_url)
+    var process = new ffmpeg(`./raw_video/${data.raw_video_name}`)
     .then(async function (video) {
       const fileName = `video_w_${new Date().getTime()}-${data.order_id}.mp4`
       log('log', `Video with order id: ${data.order_id} is starting watermark proccess`);
@@ -72,21 +40,31 @@ async function addWatermarkVideo(data){
 
           // Upload To S3
           await uploadToS3(fileName, file, data.order_id)
+          .catch(err => {
+            reject(err)
+          })
+
+          fs.unlink(file, (err) => {
+            if (err) {
+              log('error_log', `preview video with order id: ${data.order_id} is failed to removed | error: ${error}`)
+              return false
+            }
+          })
 
           resolve(file)
         }
       )
     })
     .catch(err => {
-      console.log(err);
       log('error_log', `Video with order id: ${data.order_id} is failed watermark proccess | error: ${err}`)
+      reject(err)
     });
   })
 }
 
 async function addPreviewWatermarkVideo(data){
   return new Promise((resolve, reject) => {
-    var process = new ffmpeg(data.video_url)
+    var process = new ffmpeg(`./raw_video/${data.raw_video_name}`)
     .then(async function (video) {
       const fileName = `video_p_${new Date().getTime()}-${data.order_id}.mp4`
       log('log', `Video with order id: ${data.order_id} is starting preview watermark proccess`);
@@ -98,7 +76,6 @@ async function addPreviewWatermarkVideo(data){
   
           // If there is an error
           if (error) {
-            console.log(error);
             log('error_log', `Video with order id: ${data.order_id} is failed preview watermark proccess | error: ${error}`)
             return false
           } 
@@ -107,6 +84,16 @@ async function addPreviewWatermarkVideo(data){
 
           // Upload To S3
           await uploadToS3(fileName, file, data.order_id)
+          .catch(err => {
+            reject(err)
+          })
+
+          fs.unlink(file, (err) => {
+            if (err) {
+              log('error_log', `watermarked video with order id: ${data.order_id} is failed to removed | error: ${error}`)
+              return false
+            }
+          })
 
           resolve(file)
         }
@@ -164,24 +151,72 @@ async function uploadToS3(fileName, fileLocation, order_id){
 
   } catch (err) {
     log('error_log', `Failed to upload video with order_number: ${order_id} | error: ${err}`);
-    
     console.log(err);
+    throw err
   }
+}
 
+async function downloadFromS3(data){
+  return new Promise((resolve, reject) => {
+
+    const fileExtension = data.video_url.split('.')
+
+    const file = fs.createWriteStream(`./raw_video/${data.order_id}.${fileExtension}`);
+    let fileInfo = null;
+
+    log('log', `Downloading RAW video from url: ${data.video_url}`)
+    console.log(data.video_url);
+
+    const request = get(data.video_url, response => {
+      // if (response.statusCode !== 200) {
+      //   fs.unlink(`./raw_video/${data.order_id}.${fileExtension}`);
+      //   reject(err);
+      //   return;
+      // }
+
+      fileInfo = {
+        fileName: `${data.order_id}.${fileExtension}`,
+        mime: response.headers['content-type'],
+      };
+
+      response.pipe(file);
+    });
+
+    // The destination stream is ended by the time it's called
+    file.on('finish', () => {
+      resolve(fileInfo)
+      log('log', `Success download RAW video from url: ${data.raw_video}`)
+    });
+
+    request.on('error', err => {
+      fs.unlink(`./raw_video/${data.order_id}.${fileExtension}`, () => reject(err));
+    });
+
+    file.on('error', err => {
+      fs.unlink(`./raw_video/${data.order_id}.${fileExtension}`, () => reject(err));
+    });
+
+    request.end();
+
+  })
   
 }
 
 app.get('/', async (req, res) => {
-  if (!isEncoding) {
-    proccessVideo()
-  }
+  // const getFile = await downloadFromS3('https://s3.ap-southeast-2.wasabisys.com/testing-area/asset/talentvideo2.mp4')
+  const getFile = await downloadFromS3('https://s3.ap-southeast-2.wasabisys.com/testing-area/asset/video2.mkv')
+  // if (!isEncoding) {
+  //   proccessVideo()
+  // }
+
+  log('log', getFile)
 
   res.send("Encode start!")
 })
 
 app.get('/add2', async (req, res) => {
 
-    let encodeData = await readJSON() 
+    let encodeData = await readJSON('data') 
     .catch(err => {
       log('error_log', `Error when read JSON FILE, message: ${err}`)
       console.log(err)
@@ -191,11 +226,12 @@ app.get('/add2', async (req, res) => {
     encodeData.data.push({
       "order_id": encodeData.data.length > 0 ? encodeData.data[encodeData.data.length - 1].order_id + 1 : 1,
       // "order_id": order_id, // Real data
-      "video_url": "./assets/video.mp4",
+      // "video_url": "./assets/video.mp4",
+      "video_url": "https://s3.ap-southeast-2.wasabisys.com/testing-area/asset/talentvideo2.mp4",
       "is_landscape": true
     })
 
-  await writeJSON(encodeData)
+  await writeJSON('data',encodeData)
 
   if (!isEncoding) {
     proccessVideo()
@@ -206,7 +242,7 @@ app.get('/add2', async (req, res) => {
 
 app.get('/add', async (req, res) => {
 
-  let encodeData = await readJSON() 
+  let encodeData = await readJSON('data') 
   .catch(err => {
     log('error_log', `Error when read JSON FILE, message: ${err}`)
     console.log(err)
@@ -216,11 +252,12 @@ app.get('/add', async (req, res) => {
   encodeData.data.push({
     "order_id": encodeData.data.length > 0 ? encodeData.data[encodeData.data.length - 1].order_id + 1 : 1,
     // "order_id": order_id, // Real data
-    "video_url": "./assets/talentvideo1.mp4",
+    // "video_url": "./assets/talentvideo1.mp4",
+    "video_url": "https://s3.ap-southeast-2.wasabisys.com/testing-area/asset/video2.mkv",
     "is_landscape": true
   })
 
-await writeJSON(encodeData)
+await writeJSON('data', encodeData)
 
 if (!isEncoding) {
   proccessVideo()
@@ -231,7 +268,7 @@ res.send("Encode data added Successfully!")
 
 async function proccessVideo(){
   isEncoding = true
-  let encodeData = await readJSON()
+  let encodeData = await readJSON('data')
   .catch(err => {
     log('error_log', `Error when read JSON FILE, message: ${err}`)
     console.log(err)
@@ -242,12 +279,23 @@ async function proccessVideo(){
     let encodedVideoData = {
       "order_id":currentEncode.order_id,
       "raw_video":currentEncode.video_url,
+      "raw_video_name":'',
       "watermark_video":'',
       "preview_video":'',
       "is_landscape":currentEncode.is_landscape
     }
   
     try {
+
+      // Download File From S3
+      await downloadFromS3(currentEncode)
+        .then(res => {
+          encodedVideoData.raw_video_name = res.fileName
+        })
+        .catch(err => {
+          console.log(err)
+          log('error_log', `Error when download RAW video with order id: ${data.order_id} | error: ${err}`)
+        })
   
       // Add watermark Foryou to Video
       await addWatermarkVideo(currentEncode)
@@ -269,41 +317,51 @@ async function proccessVideo(){
           log('error_log', `Video with order id: ${data.order_id} is failed preview watermark proccess | error: ${err}`)
         })
   
-      console.log("result:", encodedVideoData);
-      
       // Refresh Data (if there's new data)
-      encodeData = await readJSON()
+      encodeData = await readJSON('data')
       .catch(err => {
         log('error_log', `Error when read new JSON FILE, message: ${err}`)
-        log('error_log', `All encode proccess stopped!`)
-        return false
       })
 
       // Remove Current Encode data
       encodeData.data = encodeData.data.filter(value => {
         return value.order_id != currentEncode.order_id
       })
-  
-      await writeJSON(encodeData)
+      await writeJSON('data', encodeData)
       
       // Add finished data to log
-      let doneEncodeData = await readFinishedJobJSON() 
-      await writeFinishedJobJSON(doneEncodeData, encodedVideoData)
-  
-      if (encodeData.data.length > 0) {
-        proccessVideo()
-      } else {
-        isEncoding = false
-      }
-  
+      let doneEncodeData = await readJSON('finished_job') 
+      await writeJSON('finished_job', doneEncodeData, encodedVideoData)
+      
+      // Switch to Next Job
+      proccessVideo()
+      
     } catch (err) {
       log('error_log', `Failed to proccess... Error: ${err}`);
-      // console.log(e.code);
-      // console.log(e.msg);
+
+      // Refresh Data (if there's new data)
+      encodeData = await readJSON('data')
+      .catch(err => {
+        log('error_log', `Error when read new JSON FILE, message: ${err}`)
+      })
+
+      // Remove Current Encode data
+      encodeData.data = encodeData.data.filter(value => {
+        return value.order_id != currentEncode.order_id
+      })
+      await writeJSON('data', encodeData)
+
+      // Add error data to failed_job.json
+      const errorJobs = await readJSON("failed_job")
+      await writeJSON('failed_job', errorJobs, encodedVideoData)
+
+      // Switch to Next Job
+      proccessVideo()
     }
 
   } else {
-    log('log', `All video encoded successfully`);
+    log('log', `All jobs done!`);
+    isEncoding = false
   }
 }
 
