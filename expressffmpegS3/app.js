@@ -246,8 +246,8 @@ app.get('/add2', async (req, res) => {
       "order_id": encodeData.data.length > 0 ? encodeData.data[encodeData.data.length - 1].order_id + 1 : 1,
       // "order_id": order_id, // Real data
       // "video_url": "./assets/video.mp4",
-      // "video_url": "https://s3.ap-southeast-2.wasabisys.com/testing-area/asset/talentvideo2.mp4",
-      "video_url": "https://s3.ap-southeast-2.wasabisys.com/testing-area/asset/video2.mkv",
+      "video_url": "https://s3.ap-southeast-2.wasabisys.com/testing-area/asset/talentvideo2.mp4",
+      // "video_url": "https://s3.ap-southeast-2.wasabisys.com/testing-area/asset/video2.mkv",
       "is_landscape": true
     })
 
