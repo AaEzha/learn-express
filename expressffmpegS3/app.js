@@ -3,7 +3,6 @@ const ffmpeg = require('ffmpeg')
 const log = require('writelog')
 
 var fs = require('fs')
-var aws = require("aws-sdk")
 var {Upload} = require("@aws-sdk/lib-storage");
 var {S3Client} = require("@aws-sdk/client-s3");
 require('dotenv/config')
@@ -289,14 +288,11 @@ async function proccessVideo(){
       "preview_video":'',
     }
 
-    console.log(currentEncode);
     try {
 
       // Download File From S3
-      console.log("Download from S3");
       await downloadFromS3(currentEncode)
         .then(res => {
-          console.log("downloadRes:", res);
           currentEncode.raw_video_name = res.fileName
           currentEncode.raw_video_extension = res.extension
         })
@@ -306,7 +302,6 @@ async function proccessVideo(){
         })
       
       // Add watermark Foryou to Video
-      console.log("add FORYOU Watermark");
       await addWatermarkVideo(currentEncode)
         .then(res => {
           currentEncode.watermark_video = res
@@ -341,6 +336,14 @@ async function proccessVideo(){
       // Add finished data to log
       let doneEncodeData = await readJSON('finished_job') 
       await writeJSON('finished_job', doneEncodeData, currentEncode)
+
+      // Delete Old raw video
+      fs.unlink(`./raw_video/${currentEncode.raw_video_name}.${currentEncode.raw_video_extension}`, (err) => {
+        if (err) {
+          log('error_log', `Raw video with order id: ${data.order_id} is failed to removed | error: ${error}`)
+          return false
+        }
+      })
       
       // Switch to Next Job
       proccessVideo()
