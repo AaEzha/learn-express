@@ -259,7 +259,10 @@ app.get('/add2', async (req, res) => {
   res.send("Encode data added Successfully!")
 })
 
-app.get('/add', async (req, res) => {
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.post('/add', async (req, res) => {
 
   let encodeData = await readJSON('data') 
   .catch(err => {
@@ -270,13 +273,13 @@ app.get('/add', async (req, res) => {
   // Add new real data
   encodeData.data.push(req.body)
 
-await writeJSON('data', encodeData)
+  await writeJSON('data', encodeData)
 
-if (!isEncoding) {
-  proccessVideo()
-}
+  if (!isEncoding) {
+    proccessVideo()
+  }
 
-res.send("Encode data added Successfully!")
+  res.status(201).send("Encode data added Successfully!")
 })
 
 async function proccessVideo(){
