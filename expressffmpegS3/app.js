@@ -272,7 +272,12 @@ app.post('/add', async (req, res) => {
   })
 
   // Add new real data
-  encodeData.data.push(req.body)
+  encodeData.data.push({
+      "due_date": req.body.due_date,
+      "order_id": req.body.order_id,
+      "video_url": req.body.video_url,
+      "is_landscape": req.body.is_landscape
+  })
 
   await writeJSON('data', encodeData)
 
