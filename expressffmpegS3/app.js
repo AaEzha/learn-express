@@ -1,6 +1,7 @@
 const express = require('express')
 const ffmpeg = require('ffmpeg')
 const log = require('writelog')
+var axios = require('axios')
 
 var fs = require('fs')
 var {Upload} = require("@aws-sdk/lib-storage");
@@ -259,7 +260,10 @@ app.get('/add2', async (req, res) => {
   res.send("Encode data added Successfully!")
 })
 
-app.get('/add', async (req, res) => {
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.post('/add', async (req, res) => {
 
   let encodeData = await readJSON('data') 
   .catch(err => {
@@ -270,13 +274,13 @@ app.get('/add', async (req, res) => {
   // Add new real data
   encodeData.data.push(req.body)
 
-await writeJSON('data', encodeData)
+  await writeJSON('data', encodeData)
 
-if (!isEncoding) {
-  proccessVideo()
-}
+  if (!isEncoding) {
+    proccessVideo()
+  }
 
-res.send("Encode data added Successfully!")
+  res.status(201).send("Encode data added Successfully!")
 })
 
 async function proccessVideo(){
@@ -352,6 +356,11 @@ async function proccessVideo(){
           return false
         }
       })
+
+      await axios.post('/x/ncdr/success', currentEncode)
+      .catch(err => {
+        log('error_log', `Error when sending complete status to Laravel Backend | error: ${err}`)
+      })
       
       // Switch to Next Job
       proccessVideo()
@@ -374,6 +383,11 @@ async function proccessVideo(){
       // Add error data to failed_job.json
       const errorJobs = await readJSON("failed_job")
       await writeJSON('failed_job', errorJobs, currentEncode)
+
+      await axios.post('/x/ncdr/failure', currentEncode)
+      .catch(err => {
+        log('error_log', `Error when sending failed status to Laravel Backend | error: ${err}`)
+      })
 
       // Switch to Next Job
       proccessVideo()
