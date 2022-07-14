@@ -165,7 +165,7 @@ async function downloadFromS3(data){
 
     log('log', `Downloading RAW video from url: ${data.video_url}`)
 
-    const request = get(data.video_url, response => {
+    const request = get(data.video_url , response => {
       if (response.statusCode !== 200) {
         fs.unlink(`./raw_video/${data.order_id}.${fileExtension[fileExtension.length - 1]}`);
         reject(err);
@@ -187,12 +187,22 @@ async function downloadFromS3(data){
       log('log', `Success download RAW video from url: ${data.video_url}`)
     });
 
+    request.setTimeout(1000 * 60 * 30, (err) => {
+      fs.unlink(`./raw_video/${data.order_id}.${fileExtension[fileExtension.length - 1]}`, () => reject(err));
+      request.destroy();
+      log('error_log', `Timeout to download RAW video from url: ${data.video_url}`)
+    })
+
     request.on('error', err => {
       fs.unlink(`./raw_video/${data.order_id}.${fileExtension[fileExtension.length - 1]}`, () => reject(err));
+      request.destroy();
+      log('error_log', `Failed to download RAW video from url: ${data.video_url}`)
     });
 
     file.on('error', err => {
       fs.unlink(`./raw_video/${data.order_id}.${fileExtension[fileExtension.length - 1]}`, () => reject(err));
+      request.destroy();
+      log('error_log', `Failed to download RAW video from url: ${data.video_url}`)
     });
 
     request.end();
@@ -201,22 +211,22 @@ async function downloadFromS3(data){
 }
 
 app.get('/', async (req, res) => {
-  // const getFile = await downloadFromS3('https://s3.ap-southeast-2.wasabisys.com/testing-area/asset/talentvideo2.mp4')
-  const data = {
-    "order_id": 1,
-    // "order_id": order_id, // Real data
-    // "video_url": "./assets/talentvideo1.mp4",
-    "video_url": 'https://s3.ap-southeast-2.wasabisys.com/testing-area/asset/video2.mkv',
-    "is_landscape": true
+  let encodeData = await readJSON('data') 
+  .catch(err => {
+    log('error_log', `Error when read JSON FILE, message: ${err}`)
+    console.log(err)
+  })
+
+  res.status(200).json(encodeData)
+})
+
+app.get('/run', async (req, res) => {
+  
+  if (!isEncoding) {
+    proccessVideo()
   }
-  const getFile = await downloadFromS3(data)
-  // if (!isEncoding) {
-  //   proccessVideo()
-  // }
 
-  log('log', getFile)
-
-  res.send("Encode start!")
+  res.status(200).send("Running Jobs")
 })
 
 app.get('/add2', async (req, res) => {
@@ -227,12 +237,16 @@ app.get('/add2', async (req, res) => {
       console.log(err)
     })
 
-    // Add new data
+    // Add new real data
+    // encodeData.data.push(req.body)
+
+    // Add new data | Comment this in prod
     encodeData.data.push({
       "order_id": encodeData.data.length > 0 ? encodeData.data[encodeData.data.length - 1].order_id + 1 : 1,
       // "order_id": order_id, // Real data
       // "video_url": "./assets/video.mp4",
-      "video_url": "https://s3.ap-southeast-2.wasabisys.com/testing-area/asset/talentvideo2.mp4",
+      // "video_url": "https://s3.ap-southeast-2.wasabisys.com/testing-area/asset/talentvideo2.mp4",
+      "video_url": "https://s3.ap-southeast-2.wasabisys.com/testing-area/asset/video2.mkv",
       "is_landscape": true
     })
 
@@ -253,14 +267,8 @@ app.get('/add', async (req, res) => {
     console.log(err)
   })
 
-  // Add new data
-  encodeData.data.push({
-    "order_id": encodeData.data.length > 0 ? encodeData.data[encodeData.data.length - 1].order_id + 1 : 1,
-    // "order_id": order_id, // Real data
-    // "video_url": "./assets/talentvideo1.mp4",
-    "video_url": "https://s3.ap-southeast-2.wasabisys.com/testing-area/asset/video2.mkv",
-    "is_landscape": true
-  })
+  // Add new real data
+  encodeData.data.push(req.body)
 
 await writeJSON('data', encodeData)
 
