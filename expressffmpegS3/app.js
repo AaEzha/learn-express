@@ -1,6 +1,7 @@
 const express = require('express')
 const ffmpeg = require('ffmpeg')
 const log = require('writelog')
+var axios = require('axios')
 
 var fs = require('fs')
 var {Upload} = require("@aws-sdk/lib-storage");
@@ -355,6 +356,11 @@ async function proccessVideo(){
           return false
         }
       })
+
+      await axios.post('/x/ncdr/success', currentEncode)
+      .catch(err => {
+        log('error_log', `Error when sending complete status to Laravel Backend | error: ${err}`)
+      })
       
       // Switch to Next Job
       proccessVideo()
@@ -377,6 +383,11 @@ async function proccessVideo(){
       // Add error data to failed_job.json
       const errorJobs = await readJSON("failed_job")
       await writeJSON('failed_job', errorJobs, currentEncode)
+
+      await axios.post('/x/ncdr/failure', currentEncode)
+      .catch(err => {
+        log('error_log', `Error when sending failed status to Laravel Backend | error: ${err}`)
+      })
 
       // Switch to Next Job
       proccessVideo()
