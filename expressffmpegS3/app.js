@@ -15,6 +15,10 @@ const { get } = require('https')
 const app = express()
 var isEncoding = false
 
+// Set Axios default URL
+axios.defaults.baseURL = process.env.BACKEND_API_ENDPOINT
+axios.defaults.headers['accept'] = 'application/json'
+
 async function addWatermarkVideo(data){
   return new Promise((resolve, reject) => {
     var process = new ffmpeg(`./raw_video/${data.raw_video_name}.${data.raw_video_extension}`)
